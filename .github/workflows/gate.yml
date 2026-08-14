@@ -35,6 +35,9 @@ jobs:
         with:
           node-version: "20"
 
+      - name: Install Node dependencies
+        run: npm ci
+
       - name: Run Node tests
         run: npm test
 
@@ -104,6 +107,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
+
+      - name: Install Node dependencies
+        run: npm ci
 
       - name: Run packaging smoke
         run: ./scripts/run_npm_packaging_smoke.sh
