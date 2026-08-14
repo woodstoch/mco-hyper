@@ -135,6 +135,7 @@ jobs:
         run: |
           npm ci
           npm test
+          python -m unittest tests.test_platform_helpers tests.test_acp_transport
           python scripts/check_skill_format.py skills/mco-cli
           python scripts/check_package_version.py
 
