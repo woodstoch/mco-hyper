@@ -16,6 +16,7 @@ MCO first resolves `execution_mode`, then translates it into provider permission
 
 | Provider | `supported_permission_keys()` | `read_only` | `write` | `yolo` |
 |---|---|---|---|---|
+| `agy` | `["dangerously_skip_permissions"]` | unsupported | unsupported | `--dangerously-skip-permissions` |
 | `claude` | `["permission_mode"]` | `plan` | `acceptEdits` | `bypassPermissions` |
 | `codex` | `["sandbox", "approval_policy", "bypass"]` | `read-only`, approvals never | `workspace-write`, approvals never | dangerous bypass flag |
 | `gemini` | `["approval_mode"]` | `plan` | `auto_edit` | `yolo` |
@@ -50,6 +51,7 @@ Given config:
 - `allow_paths` is orchestrator-level validation, not OS-kernel sandboxing.
 - Real process sandboxing/isolation remains provider-specific.
 - `write` means “can modify project files”, not identical isolation across vendors. MCO uses the narrowest provider-native profile that still permits normal coding work.
+- Antigravity headless mode currently has no one-run CLI flag that lets MCO guarantee its unified `read_only` boundary or distinguish a bounded `write` profile from provider-native permission settings. `--sandbox` is containment, not a workspace read-only mode. MCO Hyper therefore fails closed for AGY under `read_only` and `write`; `yolo` alone maps to `--dangerously-skip-permissions`. Native AGY allow/deny/ask rules remain authoritative.
 - Hermes oneshot auto-bypasses approvals. MCO therefore fails closed for Hermes under `read_only` and `write` instead of claiming a boundary Hermes cannot enforce.
 - OpenCode currently exposes no separate mode broader than `build --auto`; its `write` and `yolo` mappings are therefore identical.
 - Pi is the strongest tool-granular mapping: `write` enables file write/edit but withholds bash; `yolo` adds bash.

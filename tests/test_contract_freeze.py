@@ -4,6 +4,7 @@ import unittest
 from pathlib import Path
 
 from runtime.adapters import (
+    AgyAdapter,
     ClaudeAdapter,
     CodexAdapter,
     CopilotAdapter,
@@ -21,7 +22,7 @@ from runtime.contracts import CAPABILITY_TIERS, PROVIDER_IDS, ProviderAdapter
 
 class ContractFreezeTests(unittest.TestCase):
     def test_provider_and_capability_sets_are_frozen(self) -> None:
-        self.assertEqual(tuple(PROVIDER_IDS), ("claude", "codex", "gemini", "opencode", "qwen", "hermes", "pi", "copilot", "grok", "cursor"))
+        self.assertEqual(tuple(PROVIDER_IDS), ("claude", "codex", "gemini", "opencode", "qwen", "hermes", "pi", "copilot", "grok", "cursor", "agy"))
         self.assertEqual(tuple(CAPABILITY_TIERS), ("C0", "C1", "C2", "C3", "C4", "C5", "C6"))
 
     def test_provider_adapter_protocol_shape(self) -> None:
@@ -39,6 +40,7 @@ class ContractFreezeTests(unittest.TestCase):
         self.assertTrue(str(paths["raw/codex.stderr.log"]).endswith("/task-123/raw/codex.stderr.log"))
 
     def test_provider_permission_key_matrix_contract(self) -> None:
+        self.assertEqual(AgyAdapter().supported_permission_keys(), ["dangerously_skip_permissions"])
         self.assertEqual(ClaudeAdapter().supported_permission_keys(), ["permission_mode"])
         self.assertEqual(CodexAdapter().supported_permission_keys(), ["sandbox", "approval_policy", "bypass"])
         self.assertEqual(GeminiAdapter().supported_permission_keys(), ["approval_mode"])
@@ -50,11 +52,11 @@ class ContractFreezeTests(unittest.TestCase):
         self.assertEqual(GrokAdapter().supported_permission_keys(), ["permission_mode", "approval_mode"])
         self.assertEqual(CursorAdapter().supported_permission_keys(), ["mode", "force", "sandbox"])
 
-    def test_provider_contract_docs_list_all_builtin_providers(self) -> None:
+    def test_active_provider_contract_docs_list_all_builtin_providers(self) -> None:
         repo_root = Path(__file__).resolve().parent.parent
         documents = [
-            repo_root / "docs" / "implementation" / "step0-interface-freeze.md",
             repo_root / "docs" / "contracts" / "provider-permissions-v0.1.x.md",
+            repo_root / "docs" / "reference" / "providers.md",
         ]
         for document in documents:
             text = document.read_text(encoding="utf-8")

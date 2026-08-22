@@ -6,6 +6,15 @@ from typing import Dict, Optional
 EXECUTION_MODES = ("read_only", "write", "yolo")
 
 _PROVIDER_EXECUTION_PERMISSIONS: Dict[str, Dict[str, Optional[Dict[str, str]]]] = {
+    "agy": {
+        # AGY headless currently has no one-run flag that can guarantee a
+        # workspace read-only boundary or a non-bypass write profile. Its
+        # fine-grained allow/deny rules live in native settings, so MCO must
+        # fail closed rather than mislabel --sandbox as read-only.
+        "read_only": None,
+        "write": None,
+        "yolo": {"dangerously_skip_permissions": "true"},
+    },
     "claude": {
         "read_only": {"permission_mode": "plan"},
         "write": {"permission_mode": "acceptEdits"},

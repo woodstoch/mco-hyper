@@ -149,17 +149,52 @@ _MAX_HISTORY_TURNS = 20  # Keep last N user+assistant pairs
 _MAX_HISTORY_CHARS = 50_000  # Truncate if total history exceeds this
 
 
-def build_history_prompt(history: List[HistoryEntry], new_prompt: str) -> str:
-    """Build a prompt that includes conversation history context.
+def _native_session_pointer_available() -> bool:
+    """Return whether this session daemon has a canonical native pointer.
 
-    Prepends the conversation history to the new prompt so the agent
-    has full context even though each turn is a fresh subprocess.
+    The manager sets these environment values only for providers whose P0
+    adapters implement exact native resume. If capture has not succeeded yet,
+    return False so the existing synthetic-history path remains the fallback.
+    """
+    if os.environ.get("MCO_HYPER_NATIVE_SESSION_ACTIVE") != "1":
+        return False
+    provider = os.environ.get("MCO_HYPER_NATIVE_PROVIDER", "").strip()
+    scope = os.environ.get("MCO_HYPER_SCOPE", "").strip()
+    repo_root = os.environ.get("MCO_HYPER_NATIVE_REPO_ROOT", "").strip()
+    if not provider or not scope or not repo_root:
+        return False
+    try:
+        from .native import (
+            NativeSessionKey,
+            NativeSessionStore,
+            execution_profile_fingerprint,
+        )
+        key = NativeSessionKey(
+            repo_root=repo_root,
+            scope=scope,
+            provider=provider,
+            profile_fingerprint=execution_profile_fingerprint(provider, {}),
+        )
+        return NativeSessionStore(repo_root).get(key) is not None
+    except (OSError, ValueError):
+        # Session history is an existing, conservative fallback. Corrupt or
+        # temporarily unreadable native metadata must not make continuity fail.
+        return False
+
+
+def build_history_prompt(history: List[HistoryEntry], new_prompt: str) -> str:
+    """Build a prompt with synthetic history only when native resume is absent.
+
+    For P0 native-session daemons (Codex, Copilot, AGY), once a reusable native
+    pointer has been captured, the provider session is authoritative and only
+    the current request is sent. Before a pointer exists, or if native state is
+    unavailable, the original synthetic-history behaviour remains the fallback.
 
     Truncation: keeps the last _MAX_HISTORY_TURNS entries and caps total
     character count at _MAX_HISTORY_CHARS. Earlier entries are summarized
     as "(N earlier turns omitted)".
     """
-    if not history:
+    if not history or _native_session_pointer_available():
         return new_prompt
 
     # Truncate to last N entries
