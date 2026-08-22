@@ -154,7 +154,7 @@ class CodexAdapter(ShimAdapterBase):
             "--json",
             "--output-schema",
             "<schema-path>",
-            "<prompt-or-resume>",
+            "<prompt>",
         ]
 
     def _is_success(self, return_code: int, stdout_text: str, stderr_text: str) -> bool:
