@@ -17,6 +17,9 @@ dist/
 
 # Local runtime state
 .mco/state.json
+.mco/native-sessions.json
+.mco/native-sessions.json.lock
+.mco/native-sessions.json.*.tmp
 
 # Hive workspace / local mcporter config (not part of repo)
 /.hive/
