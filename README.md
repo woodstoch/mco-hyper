@@ -14,7 +14,7 @@
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python 3.10+" />
 </p>
 
-<p align="center">English · <a href="./README.zh-CN.md">简体中文</a></p>
+<p align="center">English · <a href="./README.zh-TW.md">繁體中文</a></p>
 
 MCO is a lightweight, CLI-first orchestration layer for AI coding agents. Give one task to the agents and models you choose, run them in parallel, and compare their raw answers before you act.
 
