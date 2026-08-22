@@ -20,6 +20,34 @@ from .state import (
 )
 
 
+_NATIVE_SESSION_PROVIDERS = {"agy", "codex", "copilot"}
+_NATIVE_ENV_KEYS = (
+    "MCO_HYPER_SCOPE",
+    "MCO_HYPER_SESSION_MODE",
+    "MCO_HYPER_SESSION_ID",
+    "MCO_HYPER_NATIVE_SESSION_ACTIVE",
+    "MCO_HYPER_NATIVE_PROVIDER",
+    "MCO_HYPER_NATIVE_REPO_ROOT",
+)
+
+
+def _daemon_env(repo_root: str, name: str) -> Dict[str, str]:
+    """Build a clean daemon environment with topic-scoped native continuity."""
+    env = os.environ.copy()
+    for key in _NATIVE_ENV_KEYS:
+        env.pop(key, None)
+    state = load_state(repo_root, name)
+    if state is not None and state.provider in _NATIVE_SESSION_PROVIDERS:
+        env.update({
+            "MCO_HYPER_SCOPE": state.name,
+            "MCO_HYPER_SESSION_MODE": "reuse",
+            "MCO_HYPER_NATIVE_SESSION_ACTIVE": "1",
+            "MCO_HYPER_NATIVE_PROVIDER": state.provider,
+            "MCO_HYPER_NATIVE_REPO_ROOT": repo_root,
+        })
+    return env
+
+
 def _launch_daemon(repo_root: str, name: str) -> None:
     """Launch daemon as a detached subprocess that survives parent exit.
 
@@ -50,6 +78,7 @@ def _launch_daemon(repo_root: str, name: str) -> None:
             stdin=subprocess.DEVNULL,
             start_new_session=True,  # Detach from parent process group
             close_fds=True,
+            env=_daemon_env(repo_root, name),
         )
     finally:
         # Close file handles in parent process — child inherits its own copies
