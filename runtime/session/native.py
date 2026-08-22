@@ -54,11 +54,15 @@ def execution_profile_fingerprint(provider: str, metadata: Mapping[str, Any]) ->
 
     P1 will introduce named Profiles/Connections. Until then P0 still needs to
     prevent a model or permission/context change from silently reusing a native
-    session. Only stable execution-relevant fields participate; prompt/task and
-    artifact metadata deliberately do not.
+    session. Optional profile/connection fingerprints may already be supplied
+    by an internal caller or compatibility shim, but P0 does not define their
+    user-facing configuration surface. Prompt/task/artifact metadata is never
+    part of session identity.
     """
     payload = {
         "provider": provider,
+        "profile_identity": metadata.get("profile_identity"),
+        "connection_fingerprint": metadata.get("connection_fingerprint"),
         "model": metadata.get("model"),
         "provider_permissions": metadata.get("provider_permissions"),
         "provider_context": metadata.get("provider_context"),
@@ -164,9 +168,9 @@ def _exclusive_lock(lock_path: Path) -> Iterator[None]:
         except ImportError:  # pragma: no cover - Windows-only branch
             import msvcrt  # type: ignore
             handle.seek(0)
-            if handle.tell() == 0:
-                handle.write(b"0")
-                handle.flush()
+            handle.write(b"0")
+            handle.flush()
+            handle.seek(0)
             msvcrt.locking(handle.fileno(), msvcrt.LK_LOCK, 1)
             try:
                 yield
