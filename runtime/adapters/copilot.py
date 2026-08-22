@@ -111,7 +111,6 @@ class CopilotAdapter(ShimAdapterBase):
     def _build_command_for_record(self) -> List[str]:
         return [
             "copilot", "-p", "<prompt>", "-s", "--no-ask-user",
-            "--session-id", "<scoped-session-id>",
             "--deny-tool=write", "--deny-tool=shell",
         ]
 
