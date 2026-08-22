@@ -32,6 +32,17 @@ class NativeSessionIdentityTests(unittest.TestCase):
             self.assertNotEqual(base.stable_id, other_scope.stable_id)
             self.assertNotEqual(base.stable_id, other_profile.stable_id)
 
+    def test_optional_connection_fingerprint_is_part_of_identity(self) -> None:
+        native = execution_profile_fingerprint(
+            "copilot",
+            {"model": "model-a", "connection_fingerprint": "native"},
+        )
+        byok = execution_profile_fingerprint(
+            "copilot",
+            {"model": "model-a", "connection_fingerprint": "byok-endpoint-a"},
+        )
+        self.assertNotEqual(native, byok)
+
     def test_profile_fingerprint_ignores_prompt_and_artifact_metadata(self) -> None:
         first = execution_profile_fingerprint(
             "codex",
