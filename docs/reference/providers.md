@@ -1,11 +1,12 @@
 # Provider and permission reference
 
-MCO ships ten built-in provider adapters. A provider must still be installed and authenticated independently before MCO can use it.
+MCO Hyper ships eleven built-in provider adapters. A provider must still be installed and authenticated independently before MCO can use it.
 
 ## Built-in providers
 
 | Provider | Provider ID | CLI detection | Notes |
 |----------|-------------|---------------|-------|
+| Antigravity CLI | `agy` | `agy` | Structured headless JSON and exact conversation resume; native permission settings remain authoritative |
 | Claude Code | `claude` | `claude` | Native permission modes |
 | Codex CLI | `codex` | `codex` | Native sandbox and approval controls |
 | Gemini CLI | `gemini` | `gemini` | Plan, auto-edit, and yolo approval modes |
@@ -21,6 +22,7 @@ MCO ships ten built-in provider adapters. A provider must still be installed and
 
 | Provider | `read_only` | `write` | `yolo` |
 |----------|-------------|---------|--------|
+| Antigravity | unsupported | unsupported | `--dangerously-skip-permissions` |
 | Claude | `plan` | `acceptEdits` | `bypassPermissions` |
 | Codex | read-only sandbox | workspace-write sandbox | bypass profile |
 | Gemini | `plan` | `auto_edit` | `yolo` |
@@ -33,6 +35,8 @@ MCO ships ten built-in provider adapters. A provider must still be installed and
 | Cursor | ask + sandbox | agent + sandbox | agent without sandbox |
 
 Provider-specific overrides remain available through `--provider-permissions-json`. Strict enforcement fails closed when MCO cannot express a requested boundary.
+
+For Antigravity specifically, `--sandbox` is an OS containment control rather than a workspace read-only mode. MCO Hyper does not relabel it as `read_only`. Fine-grained AGY allow/deny/ask rules remain owned by the native CLI settings; until AGY exposes enforceable one-run equivalents, unified `read_only` and bounded `write` modes fail closed.
 
 `--allow-paths` validates the scope requested by MCO. It does not create an operating-system sandbox or override the underlying provider's capabilities.
 
@@ -68,6 +72,8 @@ mco review \
   --provider-models-json '{"codex":"gpt-5.4","pi":{"provider":"seal","model":"deepseek-v4-pro"}}' \
   --prompt "Review for bugs."
 ```
+
+Antigravity model selection is passed natively with `--model`; reasoning effort can be supplied through its supported provider-context `effort` value (`low`, `medium`, or `high`).
 
 The model catalog is best-effort and depends on what each installed CLI exposes.
 
