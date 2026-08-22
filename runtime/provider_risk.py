@@ -4,6 +4,10 @@ from typing import Dict, Mapping, Optional
 
 
 _PROVIDER_RISKS: Dict[str, Dict[str, str]] = {
+    "agy": {
+        "level": "unknown",
+        "reason": "AGY headless fine-grained permissions are controlled by native settings; MCO does not claim a read-only boundary",
+    },
     "claude": {
         "level": "read_only",
         "reason": "default command uses Claude plan permission mode",
@@ -68,6 +72,11 @@ def effective_provider_risk(
     transport: str = "shim",
 ) -> Dict[str, str]:
     permissions = applied_permissions or {}
+    if provider == "agy" and permissions.get("dangerously_skip_permissions") == "true":
+        return {
+            "level": "approval_bypass",
+            "reason": "effective AGY dangerously_skip_permissions=true auto-approves all tool permission requests",
+        }
     if provider == "claude" and "permission_mode" in permissions:
         permission_mode = str(permissions["permission_mode"]).strip()
         levels = {
