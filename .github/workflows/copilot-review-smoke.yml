@@ -1,0 +1,31 @@
+name: Copilot Review Worker Smoke
+
+on:
+  push:
+    branches:
+      - feat/github-review-runtime-r1
+    paths:
+      - ".github/workflows/copilot-review.md"
+      - ".github/workflows/copilot-review.lock.yml"
+      - ".github/workflows/copilot-review-smoke.yml"
+      - ".github/review-runtime/**"
+
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  reviewer-a:
+    uses: ./.github/workflows/copilot-review.lock.yml
+    with:
+      payload: ""
+      review_id: runtime-smoke-${{ github.run_id }}
+      repository: ${{ github.repository }}
+      pr_number: 123
+      base_sha: "1111111111111111111111111111111111111111"
+      head_sha: "2222222222222222222222222222222222222222"
+      diff_sha256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      packet_sha256: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    secrets: inherit

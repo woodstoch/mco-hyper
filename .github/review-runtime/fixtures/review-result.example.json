@@ -1,0 +1,32 @@
+{
+  "schema_version": "1",
+  "reviewer": "copilot",
+  "snapshot": {
+    "base_sha": "1111111111111111111111111111111111111111",
+    "head_sha": "2222222222222222222222222222222222222222",
+    "diff_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "packet_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "findings": [
+    {
+      "id": "A-001",
+      "severity": "BLOCKING",
+      "category": "correctness",
+      "file": "runtime/example.py",
+      "line": 42,
+      "claim": "The changed code can return an invalid runtime state.",
+      "evidence": "The modified branch returns before the state transition is committed.",
+      "validation_hint": "Exercise the modified branch and assert the final persisted state.",
+      "contract_refs": [
+        "AC-01"
+      ]
+    },
+    {
+      "id": "A-002",
+      "severity": "NON_BLOCKING",
+      "category": "testing",
+      "claim": "The changed behavior has no focused regression test.",
+      "evidence": "The packet contains the implementation change but no test covering this branch."
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "schema_version": "1",
+  "review_id": "woodstoch-mco-hyper-pr-123",
+  "repository": "woodstoch/mco-hyper",
+  "pr_number": 123,
+  "author": "woodstoch",
+  "base_sha": "1111111111111111111111111111111111111111",
+  "head_sha": "2222222222222222222222222222222222222222",
+  "diff_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "packet_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+}
