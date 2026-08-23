@@ -5,6 +5,11 @@ on:
 permissions:
   contents: read
 
+models:
+  default-ai-credits-pricing:
+    input: 0.000001
+    output: 0.000001
+
 engine:
   id: copilot
   env:
