@@ -74,6 +74,9 @@ safe-outputs:
     allowed-paths:
       - "output/**"
 
+  noop:
+    report-as-issue: false
+
   report-failure-as-issue: false
 
 ---
