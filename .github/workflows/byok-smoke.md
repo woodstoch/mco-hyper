@@ -9,7 +9,7 @@ engine:
   id: copilot
   env:
     COPILOT_PROVIDER_BASE_URL: "https://llm-share.duotify.com/v1"
-    COPILOT_PROVIDER_BEARER_TOKEN: ${{ secrets.LLMSHARE_API_KEY }}
+    COPILOT_PROVIDER_API_KEY: ${{ secrets.LLMSHARE_API_KEY }}
     COPILOT_PROVIDER_TYPE: "openai"
     COPILOT_PROVIDER_WIRE_API: "completions"
     COPILOT_MODEL: "deepseek-v4-flash:0731"
