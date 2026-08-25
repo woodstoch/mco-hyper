@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import hashlib
 import json
 import re
 from pathlib import Path
@@ -27,6 +28,13 @@ CATEGORIES = {
     "concurrency",
     "error_handling",
     "standards",
+}
+
+PACKET_FILES = {
+    "diff.patch",
+    "pr.json",
+    "verification.json",
+    "context.md",
 }
 
 
@@ -78,6 +86,7 @@ def validate_packet(packet):
         "base_sha",
         "head_sha",
         "diff_sha256",
+        "files",
         "packet_sha256",
     }
 
@@ -98,7 +107,43 @@ def validate_packet(packet):
     require_regex(packet["base_sha"], SHA_RE, "packet.base_sha")
     require_regex(packet["head_sha"], SHA_RE, "packet.head_sha")
     require_regex(packet["diff_sha256"], SHA256_RE, "packet.diff_sha256")
-    require_regex(packet["packet_sha256"], SHA256_RE, "packet.packet_sha256")
+
+    files = packet["files"]
+    require_exact_keys(files, PACKET_FILES, set(), "packet.files")
+
+    for name in sorted(PACKET_FILES):
+        require_regex(
+            files[name],
+            SHA256_RE,
+            f"packet.files[{name!r}]",
+        )
+
+    if files["diff.patch"] != packet["diff_sha256"]:
+        fail(
+            "packet.files['diff.patch']: must equal packet.diff_sha256"
+        )
+
+    canonical_packet = dict(packet)
+    canonical_packet.pop("packet_sha256")
+    canonical_bytes = json.dumps(
+        canonical_packet,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    ).encode("utf-8")
+    expected_packet_sha256 = hashlib.sha256(canonical_bytes).hexdigest()
+
+    require_regex(
+        packet["packet_sha256"],
+        SHA256_RE,
+        "packet.packet_sha256",
+    )
+
+    if packet["packet_sha256"] != expected_packet_sha256:
+        fail(
+            "packet.packet_sha256: canonical manifest hash mismatch; "
+            f"expected {expected_packet_sha256}"
+        )
 
 
 def validate_finding(finding, index):
@@ -254,7 +299,7 @@ def main():
     validate_result(result)
     print("PASS contract: review-result.example.json")
 
-    print("R1-1B fixtures: PASS")
+    print("Review runtime fixtures: PASS")
 
 
 if __name__ == "__main__":

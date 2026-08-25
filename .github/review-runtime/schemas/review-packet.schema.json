@@ -13,6 +13,7 @@
     "base_sha",
     "head_sha",
     "diff_sha256",
+    "files",
     "packet_sha256"
   ],
   "properties": {
@@ -50,7 +51,36 @@
     "packet_sha256": {
       "type": "string",
       "pattern": "^[0-9a-f]{64}$",
-      "description": "SHA-256 of the normalized Review Packet payload, excluding this manifest field itself."
+      "description": "SHA-256 of the canonical UTF-8 JSON manifest with packet_sha256 excluded. Canonicalization recursively sorts object keys, uses separators (',', ':'), emits no insignificant whitespace, and emits non-ASCII characters directly as UTF-8 rather than JSON Unicode escape sequences (equivalent to Python json.dumps with sort_keys=True, separators=(',', ':'), ensure_ascii=False). The manifest transitively binds all packet payload files through their SHA-256 digests in files."
+    },
+    "files": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "diff.patch",
+        "pr.json",
+        "verification.json",
+        "context.md"
+      ],
+      "properties": {
+        "diff.patch": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "pr.json": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "verification.json": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "context.md": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "description": "SHA-256 digest of each immutable Review Packet payload file."
     }
   }
 }

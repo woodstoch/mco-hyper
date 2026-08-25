@@ -7,5 +7,11 @@
   "base_sha": "1111111111111111111111111111111111111111",
   "head_sha": "2222222222222222222222222222222222222222",
   "diff_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-  "packet_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  "packet_sha256": "7cc3e9721cad77de48b9bcf2a2ecd2df46a396ef2e663536bf04eb5e70944db6",
+  "files": {
+    "diff.patch": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "pr.json": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "verification.json": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "context.md": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+  }
 }
