@@ -1,0 +1,229 @@
+name: Prepare Review Packet
+
+on:
+  push:
+    branches:
+      - feat/github-review-runtime-r1
+    paths:
+      - ".github/review-runtime/**"
+      - ".github/workflows/prepare-review-packet.yml"
+      - ".github/workflows/copilot-review.md"
+      - ".github/workflows/copilot-review.lock.yml"
+      - ".github/workflows/copilot-review-smoke.yml"
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "Open same-repository PR number to review"
+        required: true
+        default: "3"
+        type: string
+
+permissions:
+  checks: read
+  contents: read
+  pull-requests: read
+  statuses: read
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    outputs:
+      artifact_name: ${{ steps.packet.outputs.artifact_name }}
+      base_sha: ${{ steps.packet.outputs.base_sha }}
+      diff_sha256: ${{ steps.packet.outputs.diff_sha256 }}
+      head_sha: ${{ steps.packet.outputs.head_sha }}
+      packet_sha256: ${{ steps.packet.outputs.packet_sha256 }}
+      pr_number: ${{ steps.packet.outputs.pr_number }}
+      repository: ${{ steps.packet.outputs.repository }}
+      review_id: ${{ steps.packet.outputs.review_id }}
+    steps:
+      - name: Checkout trusted runtime
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Resolve and guard pull request
+        id: resolve
+        env:
+          REQUESTED_PR: ${{ inputs.pr_number || '3' }}
+        run: |
+          set -euo pipefail
+          case "$REQUESTED_PR" in
+            ''|*[!0-9]*)
+              echo "PR number must contain only digits" >&2
+              exit 1
+              ;;
+          esac
+
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${REQUESTED_PR}" \
+            >"${RUNNER_TEMP}/pull-request.json"
+
+          jq -e \
+            --arg repository "$GITHUB_REPOSITORY" \
+            --arg author "woodstoch" \
+            --argjson requested "$REQUESTED_PR" \
+            '(
+              .number == $requested and
+              .user.login == $author and
+              .head.repo.full_name == $repository and
+              .state == "open" and
+              (.base.sha | type == "string") and
+              (.head.sha | type == "string")
+            )' \
+            "${RUNNER_TEMP}/pull-request.json" >/dev/null
+
+          base_sha="$(jq -er '.base.sha' "${RUNNER_TEMP}/pull-request.json")"
+          head_sha="$(jq -er '.head.sha' "${RUNNER_TEMP}/pull-request.json")"
+          review_id="pr-${REQUESTED_PR}-${head_sha:0:12}"
+
+          {
+            echo "pr_number=${REQUESTED_PR}"
+            echo "base_sha=${base_sha}"
+            echo "head_sha=${head_sha}"
+            echo "review_id=${review_id}"
+          } >>"${GITHUB_OUTPUT}"
+
+      - name: Fetch frozen compare metadata and diff
+        env:
+          BASE_SHA: ${{ steps.resolve.outputs.base_sha }}
+          HEAD_SHA: ${{ steps.resolve.outputs.head_sha }}
+        run: |
+          set -euo pipefail
+          gh api \
+            "repos/${GITHUB_REPOSITORY}/compare/${BASE_SHA}...${HEAD_SHA}?per_page=300" \
+            >"${RUNNER_TEMP}/compare.json"
+          gh api \
+            -H "Accept: application/vnd.github.v3.diff" \
+            "repos/${GITHUB_REPOSITORY}/compare/${BASE_SHA}...${HEAD_SHA}" \
+            >"${RUNNER_TEMP}/diff.patch"
+
+      - name: Fetch frozen check evidence
+        env:
+          HEAD_SHA: ${{ steps.resolve.outputs.head_sha }}
+        run: |
+          set -euo pipefail
+          gh api --paginate --slurp \
+            "repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}/check-runs?per_page=100" \
+            >"${RUNNER_TEMP}/check-runs.json"
+          gh api --paginate --slurp \
+            "repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}/status?per_page=100" \
+            >"${RUNNER_TEMP}/status.json"
+
+      - name: Materialize deterministic packet payloads
+        env:
+          BASE_SHA: ${{ steps.resolve.outputs.base_sha }}
+          HEAD_SHA: ${{ steps.resolve.outputs.head_sha }}
+          PR_NUMBER: ${{ steps.resolve.outputs.pr_number }}
+          REVIEW_ID: ${{ steps.resolve.outputs.review_id }}
+        run: |
+          set -euo pipefail
+          python3 .github/review-runtime/scripts/prepare_review_packet.py prepare \
+            --metadata "${RUNNER_TEMP}/pull-request.json" \
+            --compare "${RUNNER_TEMP}/compare.json" \
+            --diff "${RUNNER_TEMP}/diff.patch" \
+            --check-runs "${RUNNER_TEMP}/check-runs.json" \
+            --status "${RUNNER_TEMP}/status.json" \
+            --output "${RUNNER_TEMP}/review-payloads" \
+            --repository "${GITHUB_REPOSITORY}" \
+            --requested-pr-number "${PR_NUMBER}" \
+            --review-id "${REVIEW_ID}" \
+            --expected-base-sha "${BASE_SHA}" \
+            --expected-head-sha "${HEAD_SHA}"
+
+      - name: Build immutable Review Packet
+        env:
+          BASE_SHA: ${{ steps.resolve.outputs.base_sha }}
+          HEAD_SHA: ${{ steps.resolve.outputs.head_sha }}
+          PR_NUMBER: ${{ steps.resolve.outputs.pr_number }}
+          REVIEW_ID: ${{ steps.resolve.outputs.review_id }}
+        run: |
+          set -euo pipefail
+          python3 .github/review-runtime/scripts/build_review_packet.py \
+            --review-id "${REVIEW_ID}" \
+            --repository "${GITHUB_REPOSITORY}" \
+            --pr-number "${PR_NUMBER}" \
+            --author "woodstoch" \
+            --base-sha "${BASE_SHA}" \
+            --head-sha "${HEAD_SHA}" \
+            --diff "${RUNNER_TEMP}/review-payloads/diff.patch" \
+            --pr-json "${RUNNER_TEMP}/review-payloads/pr.json" \
+            --verification-json "${RUNNER_TEMP}/review-payloads/verification.json" \
+            --context "${RUNNER_TEMP}/review-payloads/context.md" \
+            --output "${RUNNER_TEMP}/review-packet"
+
+      - name: Consumer-validate immutable Review Packet
+        env:
+          BASE_SHA: ${{ steps.resolve.outputs.base_sha }}
+          HEAD_SHA: ${{ steps.resolve.outputs.head_sha }}
+          PR_NUMBER: ${{ steps.resolve.outputs.pr_number }}
+          REVIEW_ID: ${{ steps.resolve.outputs.review_id }}
+        run: |
+          set -euo pipefail
+          python3 .github/review-runtime/scripts/validate_review_packet.py \
+            "${RUNNER_TEMP}/review-packet" \
+            --expected-review-id "${REVIEW_ID}" \
+            --expected-repository "${GITHUB_REPOSITORY}" \
+            --expected-pr-number "${PR_NUMBER}" \
+            --expected-author "woodstoch" \
+            --expected-base-sha "${BASE_SHA}" \
+            --expected-head-sha "${HEAD_SHA}" \
+            --expected-diff-sha256 "$(jq -er '.diff_sha256' "${RUNNER_TEMP}/review-packet/manifest.json")" \
+            --expected-packet-sha256 "$(jq -er '.packet_sha256' "${RUNNER_TEMP}/review-packet/manifest.json")"
+
+      - name: Re-check pull request snapshot stability
+        env:
+          BASE_SHA: ${{ steps.resolve.outputs.base_sha }}
+          HEAD_SHA: ${{ steps.resolve.outputs.head_sha }}
+          PR_NUMBER: ${{ steps.resolve.outputs.pr_number }}
+        run: |
+          set -euo pipefail
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" \
+            >"${RUNNER_TEMP}/pull-request-final.json"
+          python3 .github/review-runtime/scripts/prepare_review_packet.py verify-snapshot \
+            --metadata "${RUNNER_TEMP}/pull-request-final.json" \
+            --repository "${GITHUB_REPOSITORY}" \
+            --requested-pr-number "${PR_NUMBER}" \
+            --expected-base-sha "${BASE_SHA}" \
+            --expected-head-sha "${HEAD_SHA}"
+
+      - name: Publish packet identity summary
+        id: packet
+        env:
+          PR_NUMBER: ${{ steps.resolve.outputs.pr_number }}
+        run: |
+          set -euo pipefail
+          manifest="${RUNNER_TEMP}/review-packet/manifest.json"
+          artifact_name="review-packet-${GITHUB_RUN_ID}"
+          {
+            echo "artifact_name=${artifact_name}"
+            echo "base_sha=$(jq -er '.base_sha' "${manifest}")"
+            echo "diff_sha256=$(jq -er '.diff_sha256' "${manifest}")"
+            echo "head_sha=$(jq -er '.head_sha' "${manifest}")"
+            echo "packet_sha256=$(jq -er '.packet_sha256' "${manifest}")"
+            echo "pr_number=${PR_NUMBER}"
+            echo "repository=${GITHUB_REPOSITORY}"
+            echo "review_id=$(jq -er '.review_id' "${manifest}")"
+          } >>"${GITHUB_OUTPUT}"
+
+          {
+            echo "### Frozen Review Packet"
+            echo
+            echo "- PR: #${PR_NUMBER}"
+            echo "- Review ID: $(jq -er '.review_id' "${manifest}")"
+            echo "- Base SHA: $(jq -er '.base_sha' "${manifest}")"
+            echo "- Head SHA: $(jq -er '.head_sha' "${manifest}")"
+            echo "- Diff SHA-256: $(jq -er '.diff_sha256' "${manifest}")"
+            echo "- Packet SHA-256: $(jq -er '.packet_sha256' "${manifest}")"
+          } >>"${GITHUB_STEP_SUMMARY}"
+
+      - name: Upload immutable Review Packet
+        uses: actions/upload-artifact@v4
+        with:
+          name: review-packet-${{ github.run_id }}
+          path: ${{ runner.temp }}/review-packet
+          retention-days: 7
+          if-no-files-found: error

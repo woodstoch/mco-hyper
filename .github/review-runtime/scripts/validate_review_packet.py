@@ -103,6 +103,11 @@ def validate_bundle(args):
         "repository",
     )
     require_expected(
+        manifest["review_id"],
+        args.expected_review_id,
+        "review_id",
+    )
+    require_expected(
         manifest["pr_number"],
         args.expected_pr_number,
         "pr_number",
@@ -121,6 +126,11 @@ def validate_bundle(args):
         manifest["head_sha"],
         args.expected_head_sha,
         "head_sha",
+    )
+    require_expected(
+        manifest["diff_sha256"],
+        args.expected_diff_sha256,
+        "diff_sha256",
     )
     require_expected(
         manifest["packet_sha256"],
@@ -146,11 +156,13 @@ def parse_args():
 
     parser.add_argument("packet", type=Path)
 
+    parser.add_argument("--expected-review-id")
     parser.add_argument("--expected-repository")
     parser.add_argument("--expected-pr-number", type=int)
     parser.add_argument("--expected-author")
     parser.add_argument("--expected-base-sha")
     parser.add_argument("--expected-head-sha")
+    parser.add_argument("--expected-diff-sha256")
     parser.add_argument("--expected-packet-sha256")
 
     return parser.parse_args()
