@@ -8,25 +8,121 @@ on:
       - ".github/workflows/copilot-review.md"
       - ".github/workflows/copilot-review.lock.yml"
       - ".github/workflows/copilot-review-smoke.yml"
+      - ".github/workflows/prepare-review-packet.yml"
       - ".github/review-runtime/**"
+      - "tests/test_review_runtime_*.py"
 
   workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "Open same-repository PR number to review"
+        required: true
+        default: "3"
+        type: string
 
 permissions:
   actions: read
   contents: read
+  checks: read
+  pull-requests: read
+  statuses: read
   issues: write
 
 jobs:
+  prepare:
+    uses: ./.github/workflows/prepare-review-packet.yml
+    with:
+      pr_number: ${{ inputs.pr_number || '3' }}
+
   reviewer-a:
+    needs: prepare
     uses: ./.github/workflows/copilot-review.lock.yml
     with:
       payload: ""
-      review_id: runtime-smoke-${{ github.run_id }}
-      repository: ${{ github.repository }}
-      pr_number: 123
-      base_sha: "1111111111111111111111111111111111111111"
-      head_sha: "2222222222222222222222222222222222222222"
-      diff_sha256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-      packet_sha256: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      review_id: ${{ needs.prepare.outputs.review_id }}
+      repository: ${{ needs.prepare.outputs.repository }}
+      pr_number: ${{ fromJSON(needs.prepare.outputs.pr_number) }}
+      base_sha: ${{ needs.prepare.outputs.base_sha }}
+      head_sha: ${{ needs.prepare.outputs.head_sha }}
+      diff_sha256: ${{ needs.prepare.outputs.diff_sha256 }}
+      packet_sha256: ${{ needs.prepare.outputs.packet_sha256 }}
+      packet_artifact: ${{ needs.prepare.outputs.artifact_name }}
     secrets: inherit
+
+  validate-result:
+    needs: [prepare, reviewer-a]
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - name: Require successful Prepare and Reviewer A
+        env:
+          PREPARE_STATUS: ${{ needs.prepare.result }}
+          REVIEWER_STATUS: ${{ needs.reviewer-a.result }}
+        run: |
+          set -euo pipefail
+          test "$PREPARE_STATUS" = success
+          test "$REVIEWER_STATUS" = success
+
+      - name: Checkout trusted validators in a fresh job
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          sparse-checkout: .github/review-runtime
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Download original immutable Review Packet
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.prepare.outputs.artifact_name }}
+          path: ${{ runner.temp }}/original-review-packet
+
+      - name: Download Copilot result
+        uses: actions/download-artifact@v4
+        with:
+          name: review-copilot-${{ github.run_id }}
+          path: ${{ runner.temp }}/copilot-result
+
+      - name: Validate structured result and frozen snapshot binding
+        env:
+          REVIEW_ID: ${{ needs.prepare.outputs.review_id }}
+          REPOSITORY: ${{ needs.prepare.outputs.repository }}
+          PR_NUMBER: ${{ needs.prepare.outputs.pr_number }}
+          BASE_SHA: ${{ needs.prepare.outputs.base_sha }}
+          HEAD_SHA: ${{ needs.prepare.outputs.head_sha }}
+          DIFF_SHA256: ${{ needs.prepare.outputs.diff_sha256 }}
+          PACKET_SHA256: ${{ needs.prepare.outputs.packet_sha256 }}
+        run: |
+          set -euo pipefail
+          python3 .github/review-runtime/scripts/validate_review_result.py \
+            "$RUNNER_TEMP/original-review-packet" \
+            "$RUNNER_TEMP/copilot-result/review-copilot.json" \
+            --expected-review-id "$REVIEW_ID" \
+            --expected-repository "$REPOSITORY" \
+            --expected-pr-number "$PR_NUMBER" \
+            --expected-author woodstoch \
+            --expected-base-sha "$BASE_SHA" \
+            --expected-head-sha "$HEAD_SHA" \
+            --expected-diff-sha256 "$DIFF_SHA256" \
+            --expected-packet-sha256 "$PACKET_SHA256" \
+            --expected-reviewer copilot
+          {
+            echo '### G1 Copilot result validation: PASS'
+            echo "PR: #$PR_NUMBER; review ID: $REVIEW_ID"
+            echo "Base SHA: $BASE_SHA"
+            echo "Head SHA: $HEAD_SHA"
+            echo "Diff SHA-256: $DIFF_SHA256"
+            echo "Packet SHA-256: $PACKET_SHA256"
+            echo "Findings: $(jq '.findings | length' "$RUNNER_TEMP/copilot-result/review-copilot.json")"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload validated review result
+        uses: actions/upload-artifact@v4
+        with:
+          name: validated-review-copilot-${{ github.run_id }}
+          path: ${{ runner.temp }}/copilot-result/review-copilot.json
+          retention-days: 7
+          if-no-files-found: error

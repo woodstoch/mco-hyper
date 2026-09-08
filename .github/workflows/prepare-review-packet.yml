@@ -1,15 +1,6 @@
 name: Prepare Review Packet
 
 on:
-  push:
-    branches:
-      - feat/github-review-runtime-r1
-    paths:
-      - ".github/review-runtime/**"
-      - ".github/workflows/prepare-review-packet.yml"
-      - ".github/workflows/copilot-review.md"
-      - ".github/workflows/copilot-review.lock.yml"
-      - ".github/workflows/copilot-review-smoke.yml"
   workflow_dispatch:
     inputs:
       pr_number:
@@ -17,6 +8,39 @@ on:
         required: true
         default: "3"
         type: string
+
+  workflow_call:
+    inputs:
+      pr_number:
+        description: "Open same-repository PR number to review"
+        required: false
+        default: "3"
+        type: string
+    outputs:
+      artifact_name:
+        description: "Immutable Review Packet artifact name"
+        value: ${{ jobs.prepare.outputs.artifact_name }}
+      review_id:
+        description: "Frozen review identity"
+        value: ${{ jobs.prepare.outputs.review_id }}
+      repository:
+        description: "Validated repository"
+        value: ${{ jobs.prepare.outputs.repository }}
+      pr_number:
+        description: "Validated PR number"
+        value: ${{ jobs.prepare.outputs.pr_number }}
+      base_sha:
+        description: "Frozen base SHA"
+        value: ${{ jobs.prepare.outputs.base_sha }}
+      head_sha:
+        description: "Frozen head SHA"
+        value: ${{ jobs.prepare.outputs.head_sha }}
+      diff_sha256:
+        description: "Frozen diff hash"
+        value: ${{ jobs.prepare.outputs.diff_sha256 }}
+      packet_sha256:
+        description: "Immutable packet identity"
+        value: ${{ jobs.prepare.outputs.packet_sha256 }}
 
 permissions:
   checks: read
@@ -26,6 +50,10 @@ permissions:
 
 jobs:
   prepare:
+    if: >-
+      github.repository == 'woodstoch/mco-hyper' &&
+      github.ref == 'refs/heads/feat/github-review-runtime-r1' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
