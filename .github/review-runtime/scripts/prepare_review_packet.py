@@ -85,13 +85,21 @@ def sanitize_changed_files(compare):
     return changed_files
 
 
-def validate_compare(compare, metadata, base_sha):
+def validate_compare(compare, metadata, base_sha, head_sha):
     if not isinstance(compare, dict):
         fail("compare response: expected object")
 
     base_commit = (compare.get("base_commit") or {}).get("sha")
     if base_commit != base_sha:
         fail("compare.base_commit.sha does not match the frozen base SHA")
+
+    commits = compare.get("commits")
+    if not isinstance(commits, list) or not commits:
+        fail("compare.commits: expected non-empty array")
+    last_commit = commits[-1]
+    compare_head = last_commit.get("sha") if isinstance(last_commit, dict) else None
+    if compare_head != head_sha:
+        fail("compare.commits[-1].sha does not match the frozen head SHA")
 
     merge_base = (compare.get("merge_base_commit") or {}).get("sha")
     require_sha(merge_base, "compare.merge_base_commit.sha")
@@ -312,7 +320,12 @@ def prepare(args):
         fail("pull request base SHA does not match the frozen expected SHA")
 
     compare = load_json(args.compare)
-    changed_files = validate_compare(compare, metadata, pr["base_sha"])
+    changed_files = validate_compare(
+        compare,
+        metadata,
+        pr["base_sha"],
+        pr["head_sha"],
+    )
 
     try:
         diff = args.diff.read_bytes()

@@ -39,6 +39,7 @@ def compare(files):
     return {
         "status": "ahead",
         "base_commit": {"sha": BASE_SHA},
+        "commits": [{"sha": HEAD_SHA}],
         "merge_base_commit": {"sha": MERGE_BASE_SHA},
         "files": files,
     }
@@ -113,6 +114,7 @@ class PrepareReviewPacketTests(unittest.TestCase):
                 compare(files),
                 pull_request(changed_files=300),
                 BASE_SHA,
+                HEAD_SHA,
             )
 
     def test_rejects_compare_count_mismatch(self):
@@ -121,6 +123,19 @@ class PrepareReviewPacketTests(unittest.TestCase):
                 compare([changed_file("one.txt")]),
                 pull_request(changed_files=2),
                 BASE_SHA,
+                HEAD_SHA,
+            )
+
+    def test_rejects_compare_head_mismatch(self):
+        frozen_compare = compare([])
+        frozen_compare["commits"][-1]["sha"] = "4" * 40
+
+        with self.assertRaisesRegex(ValueError, "frozen head SHA"):
+            prepare_review_packet.validate_compare(
+                frozen_compare,
+                pull_request(),
+                BASE_SHA,
+                HEAD_SHA,
             )
 
     def test_rejects_snapshot_drift(self):
